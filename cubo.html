@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Rubik Vault - Ultimate System V27</title>
+    <style>
+        /* =========================================
+           ESTILOS VISUALES (PRESERVADOS)
+           ========================================= */
+        :root {
+            --primary: #00f3ff;
+            --secondary: #0045ad;
+            --accent: #ff0055;
+            --bg: #050505;
+            --panel-bg: rgba(15, 15, 20, 0.90);
+            --text: #eee;
+            --border: rgba(0, 243, 255, 0.3);
+        }
+        
+        body { margin: 0; overflow: hidden; background-color: var(--bg); font-family: 'Segoe UI', Roboto, sans-serif; color: var(--text); }
+
+        /* FONDO ANIMADO */
+        .background-fx {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
+            background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #000 90%);
+        }
+        .particle {
+            position: absolute; border-radius: 50%; background: var(--primary);
+            opacity: 0.3; animation: floatUp linear infinite; pointer-events: none;
+        }
+        @keyframes floatUp { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 50% { opacity: 0.5; } 100% { transform: translateY(-10vh) scale(1); opacity: 0; } }
+
+        /* LAYOUT PRINCIPAL */
+        #main-layout { display: flex; width: 100vw; height: 100vh; position: relative; z-index: 10; }
+
+        /* LADO IZQUIERDO: UI */
+        #ui-side {
+            width: 480px; min-width: 450px;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            display: flex; justify-content: center; align-items: center;
+            position: relative; z-index: 20;
+            box-shadow: 10px 0 50px rgba(0,0,0,0.8);
+            backdrop-filter: blur(15px);
+        }
+
+        /* LADO DERECHO: 3D */
+        #canvas-side { flex-grow: 1; position: relative; z-index: 5; }
+
+        /* --- NUEVO: PANEL DE CONTROL MANUAL (DERECHA) --- */
+        #manual-panel {
+            position: absolute; top: 20px; right: 20px; width: 200px;
+            background: rgba(0, 0, 0, 0.85); border: 1px solid var(--border);
+            border-radius: 10px; padding: 15px; z-index: 100;
+            backdrop-filter: blur(10px); box-shadow: -5px 5px 20px rgba(0,0,0,0.5);
+            transition: 0.3s;
+        }
+        #manual-panel:hover { border-color: var(--primary); }
+
+        .mp-title { font-size: 12px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        
+        /* Tabs de Temas */
+        .theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 20px; }
+        .theme-btn { 
+            background: #222; border: 1px solid #444; color: #aaa; padding: 5px; 
+            font-size: 10px; cursor: pointer; text-transform: uppercase; transition: 0.2s; 
+        }
+        .theme-btn:hover, .theme-btn.active { background: var(--secondary); color: #fff; border-color: var(--primary); }
+
+        /* Botones Manuales */
+        .manual-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 15px; }
+        .man-btn {
+            background: #1a1a1a; border: 1px solid #444; color: #fff; padding: 10px 0;
+            font-weight: bold; cursor: pointer; transition: 0.2s; border-radius: 4px;
+        }
+        .man-btn:hover { background: var(--primary); color: #000; }
+
+        /* Toggle Switch */
+        .toggle-container { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; font-size: 11px; color: #ccc; }
+        .toggle-switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(14px); }
+
+        .reset-btn-small { width: 100%; background: #333; color: #fff; border: 1px solid #555; padding: 8px; cursor: pointer; font-size: 11px; text-transform: uppercase; transition: 0.2s; }
+        .reset-btn-small:hover { background: #d32f2f; border-color: red; }
+
+        /* --- ESTILOS PREVIOS (Botones, Inputs, Certificado) --- */
+        #back-btn { position: absolute; top: 20px; left: 20px; z-index: 50; background: rgba(0,0,0,0.6); border: 1px solid var(--border); color: var(--primary); padding: 10px 20px; font-size: 12px; cursor: pointer; text-decoration: none; text-transform: uppercase; letter-spacing: 1px; border-radius: 30px; transition: 0.3s; display: flex; align-items: center; gap: 10px; }
+        #back-btn:hover { background: var(--primary); color: #000; box-shadow: 0 0 15px rgba(0,243,255,0.4); }
+
+        .panel { width: 85%; text-align: center; display: none; animation: slideIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .panel.active { display: block; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); filter: blur(5px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+
+        h1 { color: #fff; text-transform: uppercase; letter-spacing: 2px; font-size: 32px; margin-bottom: 5px; text-shadow: 0 0 20px rgba(0, 243, 255, 0.6); }
+        h2 { font-size: 12px; color: var(--primary); margin-bottom: 30px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; }
+        p { color: #ccc; margin-bottom: 25px; line-height: 1.6; font-size: 15px; }
+
+        .btn-large { display: flex; align-items: center; justify-content: center; gap: 15px; width: 100%; padding: 18px; margin: 15px 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: white; font-size: 16px; font-weight: bold; border-radius: 50px; cursor: pointer; transition: all 0.3s; text-transform: uppercase; letter-spacing: 1px; }
+        .btn-large:hover { background: var(--primary); color: #000; border-color: var(--primary); box-shadow: 0 0 30px rgba(0, 243, 255, 0.4); transform: scale(1.02); }
+        .btn-primary { background: linear-gradient(90deg, var(--secondary), var(--primary)); border: none; }
+        .btn-cancel { background: transparent; border: 1px solid #555; color: #888; font-size: 12px; padding: 12px; }
+        .btn-cancel:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,0.1); box-shadow: none; }
+
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-label { font-size: 11px; color: var(--primary); margin-bottom: 8px; display: block; font-weight: bold; letter-spacing: 1px; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid #333; color: #fff; font-size: 18px; border-radius: 8px; font-weight: bold; outline: none; box-sizing: border-box; font-family: 'Consolas', monospace; transition: 0.3s; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); background: rgba(0,0,0,0.8); }
+
+        .checklist-container { text-align: left; background: rgba(0,0,0,0.4); padding: 25px; border-radius: 12px; border: 1px solid #333; margin-top: 20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); }
+        .check-item { margin: 15px 0; color: #666; display: flex; align-items: center; font-size: 14px; transition: 0.3s; }
+        .check-item.checked { color: #fff; font-weight: bold; text-shadow: 0 0 10px rgba(0, 255, 100, 0.5); transform: translateX(5px); }
+        .check-item.failed { color: #ff3333; font-weight: bold; text-shadow: 0 0 10px rgba(255, 50, 50, 0.5); }
+        .icon { margin-right: 15px; width: 20px; }
+
+        .log-box { text-align: left; background: rgba(10, 10, 12, 0.95); border: 1px solid #444; padding: 20px; font-family: 'Consolas', monospace; font-size: 12px; color: #e0e0e0; height: 300px; overflow-y: auto; margin-bottom: 25px; border-radius: 8px; box-shadow: inset 0 0 15px rgba(0,0,0,0.8); line-height: 1.6; }
+        .log-box::-webkit-scrollbar { width: 5px; }
+        .log-box::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+        .log-line { margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 5px; display: flex; }
+        .log-time { color: #666; margin-right: 15px; min-width: 60px; font-size: 11px; }
+        .p-info { color: #4fc3f7; font-weight: bold; } .p-sec { color: #ffd740; font-weight: bold; } .p-math { color: #e040fb; font-weight: bold; } .p-core { color: #ff6e40; font-weight: bold; } .p-ok { color: #00e676; font-weight: bold; } .p-err { color: #ff3333; font-weight: bold; }
+
+        #cert-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); z-index: 2000; display: flex; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; backdrop-filter: blur(20px); }
+        #cert-overlay.visible { opacity: 1; pointer-events: auto; }
+        .cert-paper { background: #fff; color: #111; width: 800px; max-width: 90%; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 0 120px rgba(0, 243, 255, 0.5); transform: scale(0.9); transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); background-image: radial-gradient(#fff 0%, #f4f4f4 100%), repeating-linear-gradient(45deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 4px); border: 1px solid #ccc; outline: 4px double #333; outline-offset: -10px; padding: 50px; }
+        #cert-overlay.visible .cert-paper { transform: scale(1); }
+        .cert-paper.failed { border-color: #d32f2f; background-image: radial-gradient(#fff0f0, #ffebee); box-shadow: 0 0 100px rgba(255, 50, 50, 0.4); }
+        .cert-paper.failed .cert-header { border-bottom-color: #d32f2f; color: #d32f2f; }
+        .cert-paper.failed .cert-gold-seal { filter: grayscale(100%) opacity(0.5); border-color: #d32f2f; }
+        .cert-paper.failed .cert-watermark { color: rgba(255,0,0,0.05); content: "REJECTED"; }
+        .cert-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 120px; font-weight: 900; color: rgba(0,0,0,0.04); pointer-events: none; white-space: nowrap; font-family: 'Times New Roman', serif; z-index: 0; text-transform: uppercase; border: 5px solid rgba(0,0,0,0.04); padding: 20px; }
+        .cert-content-layer { position: relative; z-index: 1; }
+        .cert-header { text-align: center; border-bottom: 2px solid #111; padding-bottom: 20px; margin-bottom: 30px; position: relative;}
+        .cert-title { font-family: 'Times New Roman', serif; font-size: 42px; font-weight: bold; text-transform: uppercase; color: #111; letter-spacing: 2px; }
+        .cert-subtitle { font-size: 14px; text-transform: uppercase; letter-spacing: 4px; color: #555; margin-top: 5px; }
+        .cert-body-text { font-family: 'Georgia', serif; font-size: 18px; line-height: 1.8; text-align: center; margin-bottom: 30px; color: #333; }
+        .cert-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-family: 'Segoe UI', sans-serif; font-size: 13px; }
+        .cert-table td { border: 1px solid #ddd; padding: 12px; }
+        .cert-table td.label { background: #f9f9f9; font-weight: bold; width: 30%; color: #555; text-transform: uppercase; }
+        .cert-table td.value { font-family: 'Courier New', monospace; font-weight: bold; color: #000; word-break: break-all;}
+        .cert-checklist-grid { background: rgba(240, 240, 240, 0.5); padding: 20px; border-radius: 4px; font-family: 'Segoe UI', sans-serif; font-size: 12px; color: #444; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; border: 1px solid #eee; }
+        .cert-footer-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 50px; }
+        .cert-sig-block { text-align: center; border-top: 1px solid #333; padding-top: 10px; width: 40%; }
+        .cert-sig-title { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .digital-hash { font-family: 'Courier New', monospace; font-size: 10px; color: #555; margin-bottom: 5px; word-break: break-all; }
+        .signature-code { font-family: 'Courier New', monospace; font-size: 11px; color: #0045ad; font-weight: bold; word-break: break-all; margin-bottom: 10px; border: 1px dashed #999; padding: 8px; background: rgba(0,0,0,0.03); }
+        .cert-gold-seal { width: 130px; height: 130px; background: linear-gradient(135deg, #cfc09f 0%, #ffecb3 50%, #997f3d 100%); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.2), inset 0 0 10px rgba(139, 69, 19, 0.2); position: relative; border: 4px double #805b14; }
+        .cert-gold-seal::after { content: ''; position: absolute; top: 5px; left: 5px; right: 5px; bottom: 5px; border: 1px dashed #805b14; border-radius: 50%; }
+        .seal-text { color: #5c3a00; font-weight: 900; font-size: 16px; text-align: center; text-transform: uppercase; font-family: 'Times New Roman', serif; transform: rotate(-15deg); text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
+        .close-cert-btn { background: #111; color: #fff; border: none; padding: 15px 40px; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; cursor: pointer; margin-top: 30px; transition: 0.3s; }
+        .close-cert-btn:hover { background: var(--secondary); }
+        #cert-qr-img { width: 100px; height: 100px; border: 4px solid #111; padding: 2px; }
+    </style>
+</head>
+<body>
+
+    <div class="background-fx" id="particles"></div>
+    <a href="index.html" id="back-btn">❮ Volver a Presentación</a>
+
+    <div id="main-layout">
+        <div id="ui-side">
+            <div id="screen-home" class="panel active">
+                <h1>Rubik Vault</h1>
+                <h2>CORE SYSTEM V27</h2>
+                <div style="height: 1px; background: linear-gradient(90deg, transparent, var(--secondary), transparent); margin: 30px 0;"></div>
+                <button class="btn-large" onclick="goToInput('encrypt')"><span style="font-size:20px">🔒</span> Encriptar Datos</button>
+                <button class="btn-large" onclick="goToInput('decrypt')"><span style="font-size:20px">🔓</span> Desencriptar Datos</button>
+            </div>
+
+            <div id="screen-input" class="panel">
+                <h1 id="input-title">Encriptar</h1>
+                <p>Autenticación requerida.</p>
+                <div class="input-group">
+                    <label class="input-label">DATOS DE ENTRADA:</label>
+                    <input type="text" id="userWord" placeholder="...">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">LLAVE MAESTRA:</label>
+                    <input type="password" id="userKey" placeholder="••••••">
+                </div>
+                <div style="margin-top: 40px;">
+                    <button class="btn-large btn-primary" onclick="startProcess()">🚀 Iniciar Proceso</button>
+                    <button class="btn-large btn-cancel" onclick="goBack()">Cancelar</button>
+                </div>
+            </div>
+
+            <div id="screen-process" class="panel">
+                <h1 style="font-size: 24px;">Analizando...</h1>
+                <div class="checklist-container" id="live-checklist">
+                    <div class="check-item" id="chk-1"><span class="icon">⚪</span> Verificación de Credenciales</div>
+                    <div class="check-item" id="chk-2"><span class="icon">⚪</span> Derivación de Llave (Salt)</div>
+                    <div class="check-item" id="chk-3"><span class="icon">⚪</span> Motor Criptográfico</div>
+                    <div class="check-item" id="chk-4"><span class="icon">⚪</span> Prueba de Integridad</div>
+                    <div class="check-item" id="chk-5"><span class="icon">⚪</span> Generando Reporte</div>
+                </div>
+            </div>
+
+            <div id="screen-explain" class="panel" style="width: 92%;">
+                <h1>Auditoría Forense</h1>
+                <p>Análisis detallado.</p>
+                <div class="log-box" id="tech-log"></div>
+                <button class="btn-large btn-primary" onclick="showCertificateModal()">📜 Emitir Certificado</button>
+            </div>
+        </div>
+
+        <div id="canvas-side">
+            <div id="manual-panel">
+                <div class="mp-title">TEMAS VISUALES</div>
+                <div class="theme-grid">
+                    <button class="theme-btn" onclick="setTheme('classic')">Clásico</button>
+                    <button class="theme-btn" onclick="setTheme('hacker')">Matrix</button>
+                    <button class="theme-btn" onclick="setTheme('mystic')">Místico</button>
+                    <button class="theme-btn" onclick="setTheme('neon')">Neón</button>
+                </div>
+                
+                <div class="mp-title">CONTROL MANUAL</div>
+                <div class="toggle-container">
+                    <span>Dirección Giro:</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="invert-move">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="manual-grid">
+                    <button class="man-btn" onclick="manualMove('U')">U</button>
+                    <button class="man-btn" onclick="manualMove('F')">F</button>
+                    <button class="man-btn" onclick="manualMove('R')">R</button>
+                    <button class="man-btn" onclick="manualMove('D')">D</button>
+                    <button class="man-btn" onclick="manualMove('B')">B</button>
+                    <button class="man-btn" onclick="manualMove('L')">L</button>
+                </div>
+                <button class="reset-btn-small" onclick="buildCube('READY')">REINICIAR CUBO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cert-overlay">
+        <div class="cert-paper" id="cert-paper-element">
+            <div class="cert-watermark" id="cert-bg-text">OFFICIAL</div>
+            <div class="cert-content-layer">
+                <div class="cert-header">
+                    <div class="cert-title">Certificado de Autenticidad Digital</div>
+                    <div class="cert-subtitle">Rubik Vault Security Protocol V27</div>
+                </div>
+                <div class="cert-body-text" id="cert-body-content">
+                    Este documento certifica legalmente que el bloque de datos ha sido procesado mediante un algoritmo de cifrado polimórfico de grado militar. La integridad de la información está garantizada por firma criptográfica.
+                </div>
+                <table class="cert-table">
+                    <tr><td class="label">ID de Transacción</td><td class="value"><span id="cert-id"></span></td></tr>
+                    <tr><td class="label">Tipo de Operación</td><td class="value"><span id="cert-op"></span></td></tr>
+                    <tr id="cert-input-row"><td class="label">Hash de Entrada</td><td class="value" style="font-size:11px;"><span id="cert-input"></span></td></tr>
+                    <tr><td class="label">Resultado Final</td><td class="value" style="color: var(--secondary); font-size:16px;"><span id="cert-res"></span></td></tr>
+                </table>
+                <div style="font-size: 11px; text-transform: uppercase; color: #666; margin-top: 20px; font-weight: bold;">Auditoría de Procesos:</div>
+                <div class="cert-checklist-grid" id="cert-checklist-dom"></div>
+                <div class="cert-footer-row">
+                    <div class="cert-sig-block">
+                        <div class="signature-code" id="generated-signature"></div>
+                        <div class="cert-sig-title">Firma Digital</div>
+                    </div>
+                    <div class="cert-gold-seal">
+                        <div class="seal-text" id="seal-text">SECURE<br>VALID<br>TRUST</div>
+                    </div>
+                    <div class="cert-qr-block">
+                        <img id="cert-qr-img" src="" alt="QR Code">
+                        <div style="font-size:10px; margin-top:5px; font-weight:bold;">ESCANEAR</div>
+                    </div>
+                </div>
+                <div style="text-align: center;">
+                    <button class="close-cert-btn" onclick="resetApp()">Cerrar Documento</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+
+    <script>
+        // --- PARTICULAS ---
+        const particlesContainer = document.getElementById('particles');
+        for(let i=0; i<20; i++){
+            const p = document.createElement('div');
+            p.classList.add('particle');
+            p.style.left = Math.random() * 100 + 'vw';
+            p.style.width = Math.random() * 5 + 2 + 'px';
+            p.style.height = p.style.width;
+            p.style.animationDuration = Math.random() * 10 + 5 + 's';
+            p.style.animationDelay = Math.random() * 5 + 's';
+            particlesContainer.appendChild(p);
+        }
+
+        // --- CONFIGURACION DE TEMAS ---
+        const THEMES = {
+            classic: { faces: ['#B90000', '#FF5800', '#0045AD', '#009E60', '#FFFFFF', '#FFD500'] },
+            hacker: { faces: ['#002200', '#003300', '#004400', '#005500', '#006600', '#007700'] },
+            mystic: { faces: ['#2d1b2e', '#b06c98', '#4a3b69', '#6f5f90', '#a6a2a2', '#d8d8d8'] },
+            neon: { faces: ['#FF00FF', '#00FFFF', '#FFFF00', '#FF0000', '#0000FF', '#00FF00'] }
+        };
+        let currentTheme = 'classic';
+
+        function setTheme(name) {
+            currentTheme = name;
+            // Regenerar cubo con nuevo tema, manteniendo palabra si existe
+            let wordToShow = userInputValue || "READY";
+            if(finalResultValue && isOperationSuccess) wordToShow = "LOCKED"; 
+            buildCube(wordToShow);
+        }
+
+        // --- UI FUNCTIONS ---
+        function showPanel(id) { document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+        function goToInput(mode) {
+            currentMode = mode;
+            document.getElementById('input-title').innerText = mode === 'encrypt' ? "🔐 Encriptar" : "🔓 Desencriptar";
+            document.getElementById('userWord').value = ""; document.getElementById('userKey').value = "";
+            showPanel('screen-input');
+        }
+        function goBack() { showPanel('screen-home'); controls.autoRotate = true; buildCube("READY"); }
+
+        // --- CRYPTO LOGIC ---
+        const MAGIC_TOKEN = "||OK";
+        function deriveKey(password, salt) {
+            let expandedKey = "";
+            for(let i=0; i<20; i++) expandedKey += password + salt; 
+            return expandedKey;
+        }
+        function rubikEncrypt(text, password) {
+            let payload = text + MAGIC_TOKEN;
+            let salt = Math.floor(Math.random() * 65535).toString(16).toUpperCase().padStart(4, '0');
+            let sessionKey = deriveKey(password, salt);
+            let result = "";
+            for (let i = 0; i < payload.length; i++) {
+                let charCode = payload.charCodeAt(i);
+                let keyChar = sessionKey.charCodeAt(i % sessionKey.length);
+                result += (charCode ^ keyChar).toString(16).padStart(2, '0').toUpperCase();
+            }
+            return salt + "|" + result; 
+        }
+        function rubikDecrypt(cipherString, password) {
+            if (!cipherString.includes("|")) return { success: false, data: "FORMATO INVÁLIDO" };
+            let parts = cipherString.split("|");
+            let salt = parts[0];
+            let cleanHex = parts[1];
+            let sessionKey = deriveKey(password, salt);
+            let result = "";
+            for (let i = 0; i < cleanHex.length; i += 2) {
+                let hexChunk = cleanHex.substr(i, 2);
+                let charCode = parseInt(hexChunk, 16);
+                if (isNaN(charCode)) return { success: false, data: "HASH CORRUPTO" };
+                let keyChar = sessionKey.charCodeAt((i / 2) % sessionKey.length);
+                result += String.fromCharCode(charCode ^ keyChar);
+            }
+            if (result.endsWith(MAGIC_TOKEN)) return { success: true, data: result.replace(MAGIC_TOKEN, "") };
+            else return { success: false, data: result };
+        }
+
+        let currentMode = 'encrypt';
+        let userInputValue = "";
+        let userKey = "";
+        let finalResultValue = "";
+        let isOperationSuccess = true;
+
+        function startProcess() {
+            const input = document.getElementById('userWord').value.trim();
+            const key = document.getElementById('userKey').value.trim();
+            if(!input || !key) return alert("Faltan datos o llave.");
+            userInputValue = input; userKey = key;
+            
+            if (currentMode === 'encrypt') {
+                finalResultValue = rubikEncrypt(userInputValue, userKey);
+                isOperationSuccess = true; 
+                buildCube(userInputValue);
+                setTimeout(() => runAnimation(true), 1000);
+            } else {
+                let decryption = rubikDecrypt(userInputValue, userKey);
+                finalResultValue = decryption.data;
+                isOperationSuccess = decryption.success;
+                let display3D = isOperationSuccess ? (finalResultValue.length > 8 ? "DATA.." : finalResultValue) : "ERROR";
+                buildCube(display3D);
+                instantScramble();
+                setTimeout(() => runAnimation(false), 1000);
+            }
+            showPanel('screen-process');
+            controls.autoRotate = false;
+            runChecklistUI();
+        }
+
+        function runChecklistUI() {
+            const delays = [500, 1000, 2000, 3000, 4000];
+            delays.forEach((t, i) => { 
+                setTimeout(() => { 
+                    const el = document.getElementById(`chk-${i+1}`);
+                    if (i === 3 && !isOperationSuccess) { el.classList.add('failed'); el.querySelector('.icon').innerText = "❌"; } 
+                    else if (i === 0 && !isOperationSuccess && currentMode === 'decrypt') { el.classList.add('checked'); el.querySelector('.icon').innerText = "⚠️"; }
+                    else { el.classList.add('checked'); el.querySelector('.icon').innerText = "✅"; }
+                }, t); 
+            });
+            setTimeout(() => { showPanel('screen-explain'); generateExplicitLog(); }, 5000);
+        }
+
+        function generateExplicitLog() {
+            const logBox = document.getElementById('tech-log');
+            logBox.innerHTML = "";
+            const now = () => new Date().toLocaleTimeString([], {hour12:false});
+            let steps = [];
+
+            if(currentMode === 'encrypt') {
+                steps = [
+                    `<span class="log-time">[${now()}]</span> <span class="p-info">[INICIO]</span> Protocolo V27 Iniciado.`,
+                    `<span class="log-time">[${now()}]</span> <span class="p-info">[INPUT]</span> Payload recibido.`,
+                    `<span class="log-time">[${now()}]</span> <span class="p-core">[PROCESO]</span> Salt Injection.`,
+                    `<span class="log-time">[${now()}]</span> <span class="p-sec">[KEY]</span> Derivando Llave.`,
+                    `<span class="log-time">[${now()}]</span> <span class="p-math">[MATH]</span> XOR Operation.`,
+                    `<span class="log-time">[${now()}]</span> <span class="p-core">[3D]</span> Mapping Voxel.`,
+                    `<span class="log-time">[${now()}]</span> <span class="p-ok">[EXITO]</span> Hash Generado.`
+                ];
+            } else {
+                steps.push(`<span class="log-time">[${now()}]</span> <span class="p-info">[INICIO]</span> Recuperación V27.`);
+                steps.push(`<span class="log-time">[${now()}]</span> <span class="p-info">[INPUT]</span> Hash Recibido.`);
+                if (!userInputValue.includes("|")) {
+                    steps.push(`<span class="log-time">[${now()}]</span> <span class="p-err">[ERROR]</span> Formato inválido.`);
+                } else {
+                    steps.push(`<span class="log-time">[${now()}]</span> <span class="p-sec">[KEY]</span> Regenerando Llave.`, `<span class="log-time">[${now()}]</span> <span class="p-math">[MATH]</span> Inverse XOR.`);
+                    if (isOperationSuccess) {
+                        steps.push(`<span class="log-time">[${now()}]</span> <span class="p-ok">[VALIDADO]</span> Integridad Confirmada.`);
+                    } else {
+                        steps.push(`<span class="log-time">[${now()}]</span> <span class="p-err">[FATAL]</span> Llave Incorrecta.`);
+                    }
+                }
+            }
+            steps.forEach((msg, i) => { setTimeout(() => { logBox.innerHTML += `<div class="log-line">${msg}</div>`; logBox.scrollTop = logBox.scrollHeight; }, i * 400); });
+        }
+
+        function showCertificateModal() {
+            const paper = document.getElementById('cert-paper-element');
+            const stampText = document.getElementById('seal-text');
+            const bgText = document.getElementById('cert-bg-text');
+            
+            paper.classList.remove('failed');
+            const id = "RBK-" + Math.floor(Math.random()*100000000).toString(16).toUpperCase();
+            document.getElementById('cert-id').innerText = id;
+            
+            const randomSig = "/SIGNED: RSA-SHA256-" + Math.random().toString(36).substring(2, 12).toUpperCase() + "/" + Date.now();
+            document.getElementById('generated-signature').innerText = randomSig;
+
+            if (isOperationSuccess) {
+                stampText.innerHTML = "SECURE<br>VALID<br>TRUST";
+                bgText.innerText = "OFFICIAL";
+                document.getElementById('cert-body-content').innerText = "La operación criptográfica ha sido completada exitosamente.";
+                document.getElementById('cert-checklist-dom').innerHTML = `<div>✅ Llave Maestra</div><div>✅ Integridad OK</div><div>✅ Hash SHA-256</div><div>✅ Firma Autorizada</div>`;
+                document.getElementById('cert-res').style.color = "#0045ad";
+            } else {
+                paper.classList.add('failed');
+                stampText.innerHTML = "ERROR<br>INVALID";
+                bgText.innerText = "REJECTED";
+                document.getElementById('cert-body-content').innerText = "ADVERTENCIA: Descifrado fallido. Llave incorrecta.";
+                document.getElementById('cert-checklist-dom').innerHTML = `<div style="color:red">❌ Llave Incorrecta</div><div style="color:red">❌ Falla Integridad</div><div>✅ Auditoría Loggeada</div>`;
+                document.getElementById('cert-res').style.color = "#ff0000";
+            }
+
+            document.getElementById('cert-op').innerText = currentMode.toUpperCase();
+            if(currentMode === 'encrypt') document.getElementById('cert-input-row').style.display='none';
+            else {
+                document.getElementById('cert-input-row').style.display='table-row';
+                document.getElementById('cert-input').innerText = userInputValue.substring(0,25)+"...";
+            }
+            document.getElementById('cert-res').innerText = finalResultValue;
+            const qrData = isOperationSuccess ? "VALID_CERT" : "INVALID_CERT";
+            document.getElementById('cert-qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+            document.getElementById('cert-overlay').classList.add('visible');
+        }
+
+        function resetApp() {
+            document.getElementById('cert-overlay').classList.remove('visible');
+            for(let i=1; i<=5; i++) { const el = document.getElementById(`chk-${i}`); el.classList.remove('checked'); el.classList.remove('failed'); el.querySelector('.icon').innerText = "⚪"; }
+            showPanel('screen-home'); controls.autoRotate = true; buildCube("READY"); document.getElementById('userWord').value=""; document.getElementById('userKey').value="";
+        }
+
+        // --- 3D SETUP & MANUAL CONTROLS ---
+        let scene, camera, renderer, controls;
+        let allCubies = [];
+        let cubeSize = 3; 
+        const GLOBAL_CHAR_POOL = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", ..."{}[];<>!@#$%^&*()_+="];
+        // La paleta se define dinámicamente en createTexture
+
+        function getRandomChar() { return GLOBAL_CHAR_POOL[Math.floor(Math.random() * GLOBAL_CHAR_POOL.length)]; }
+
+        function init3D() {
+            const container = document.getElementById('canvas-side');
+            scene = new THREE.Scene();
+            scene.background = null; 
+            const aspect = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+            camera.position.set(6, 6, 8);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dl = new THREE.DirectionalLight(0xffffff, 1);
+            dl.position.set(10, 20, 15);
+            scene.add(dl);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; controls.autoRotate = true; controls.autoRotateSpeed = 2.0;
+            buildCube("READY");
+            animate();
+            window.addEventListener('resize', onWindowResize);
+        }
+        function onWindowResize() { camera.aspect = document.getElementById('canvas-side').clientWidth / document.getElementById('canvas-side').clientHeight; camera.updateProjectionMatrix(); renderer.setSize(document.getElementById('canvas-side').clientWidth, document.getElementById('canvas-side').clientHeight); }
+
+        function buildCube(text) {
+            allCubies.forEach(c => scene.remove(c)); allCubies = [];
+            cubeSize = Math.max(3, Math.ceil(Math.sqrt(text.length)));
+            const offset = (cubeSize - 1) / 2; const geom = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+            let colors = THEMES[currentTheme].faces;
+            
+            for(let x=0; x<cubeSize; x++) { for(let y=0; y<cubeSize; y++) { for(let z=0; z<cubeSize; z++) {
+                let mats = []; for(let i=0; i<6; i++) {
+                    let isExt = (i===0&&x===cubeSize-1)||(i===1&&x===0)||(i===2&&y===cubeSize-1)||(i===3&&y===0)||(i===4&&z===cubeSize-1)||(i===5&&z===0);
+                    if(isExt) { 
+                        let char = getRandomChar(); let isMsg = false;
+                        if(i===4) { let idx = ((cubeSize-1)-y)*cubeSize + x; if(idx < text.length) { char = text[idx]; isMsg = true; } }
+                        mats.push(new THREE.MeshStandardMaterial({ map: createTexture(char, colors[i], isMsg), roughness: 0.2 }));
+                    } else { mats.push(new THREE.MeshBasicMaterial({ color: 0x000000 })); }
+                }
+                const mesh = new THREE.Mesh(geom, mats); mesh.position.set(x-offset, y-offset, z-offset); mesh.userData = { grid: {x,y,z} }; 
+                scene.add(mesh); allCubies.push(mesh);
+            }}}
+        }
+        function createTexture(char, color, isMsg) {
+            const cvs = document.createElement('canvas'); cvs.width=128; cvs.height=128; const ctx = cvs.getContext('2d');
+            ctx.fillStyle=color; ctx.fillRect(0,0,128,128); ctx.lineWidth=8; ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.strokeRect(0,0,128,128);
+            ctx.font=isMsg?"bold 80px Arial, sans-serif":"60px Arial, sans-serif"; 
+            ctx.fillStyle=isMsg?"#fff":"rgba(0,0,0,0.4)"; ctx.textAlign="center"; ctx.textBaseline="middle";
+            if(isMsg){ctx.shadowColor="#000";ctx.shadowBlur=4;} ctx.fillText(char, 64, 64); return new THREE.CanvasTexture(cvs);
+        }
+        
+        const MOVES = ['F', 'R', 'U', 'L', 'D', 'B', 'F', 'R'];
+        function instantScramble() { MOVES.forEach(m => applyTwist(m, -1, true)); }
+        function runAnimation(enc) { let seq = enc ? MOVES : [...MOVES].reverse(); let dir = enc ? -1 : 1; animateSequence(seq, dir); }
+        function animateSequence(list, dir) { if(list.length===0)return; applyTwist(list[0], dir, false, () => setTimeout(() => animateSequence(list.slice(1), dir), 150)); }
+        
+        // --- MANUAL CONTROL LOGIC ---
+        function manualMove(face) {
+            const invert = document.getElementById('invert-move').checked;
+            const dir = invert ? 1 : -1; // -1 es horario standard en esta logica
+            applyTwist(face, dir, false);
+        }
+
+        function applyTwist(move, dir, instant, cb) {
+            const axis=(move==='L'||move==='R')?'x':(move==='U'||move==='D')?'y':'z'; const limit=(move==='R'||move==='U'||move==='F')?(cubeSize-1)/2:-(cubeSize-1)/2;
+            const sel = allCubies.filter(c => Math.abs(c.position[axis] - limit) < 0.1); const piv = new THREE.Group(); scene.add(piv); sel.forEach(c => { scene.remove(c); piv.add(c); });
+            const vec = new THREE.Vector3(axis==='x'?1:0, axis==='y'?1:0, axis==='z'?1:0);
+            if(instant) { piv.rotateOnAxis(vec, (Math.PI/2)*dir); piv.updateMatrixWorld(); finishTwist(piv, sel); }
+            else { let p=0; function loop() { p+=0.2; if(p>=Math.PI/2) { piv.setRotationFromAxisAngle(vec, (Math.PI/2)*dir); piv.updateMatrixWorld(); finishTwist(piv, sel); if(cb) cb(); } else { piv.rotateOnAxis(vec, 0.2*dir); renderer.render(scene, camera); requestAnimationFrame(loop); } } loop(); }
+        }
+        function finishTwist(piv, sel) { sel.forEach(c => { let v=new THREE.Vector3(), q=new THREE.Quaternion(), s=new THREE.Vector3(); c.matrixWorld.decompose(v, q, s); c.position.copy(v); c.quaternion.copy(q); c.position.x=Math.round(c.position.x*10)/10; c.position.y=Math.round(c.position.y*10)/10; c.position.z=Math.round(c.position.z*10)/10; piv.remove(c); scene.add(c); }); scene.remove(piv); }
+        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+        init3D();
+    </script>
+</body>
+</html>
